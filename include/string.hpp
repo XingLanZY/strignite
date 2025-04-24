@@ -1,10 +1,6 @@
 #ifndef STRIGNITE_STRING_HPP
 #define STRIGNITE_STRING_HPP
 
-#if defined(_MSC_VER) && (_MSC_VER >= 1600)
-#  pragma execution_character_set("utf-8")
-#endif
-
 #if defined(_MSC_VER)
 #  define STRIGNITE_CPLUSPLUS _MSVC_LANG
 #elif defined(__GNUC__) || defined(__clang__)
@@ -7457,13 +7453,13 @@ public:
         size_t length = 0;
         while (true) {
             if (length >= buffer_size) {
-                result += { buffer, length };
+                result += basic_string{ buffer, length };
                 length = 0;
                 continue;
             }
             const auto ch = static_cast<char_type>(is.get());
             if (is_space(ch)) {
-                result += { buffer, length };
+                result += basic_string{ buffer, length };
                 str = std::move(result);
                 break;
             }
