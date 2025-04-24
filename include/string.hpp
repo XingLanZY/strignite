@@ -602,8 +602,8 @@ const char_type* boyer_moore_search(const char_type* haystack, const size_t hays
         return nullptr;
     }
 
-    auto const needle_len_sub_1 = needle_len - 1;
-    auto const last_char = needle[needle_len_sub_1];
+    const auto needle_len_sub_1 = needle_len - 1;
+    const auto last_char = needle[needle_len_sub_1];
 
     size_t skip = 1;
     while (skip < needle_len && needle[needle_len_sub_1 - skip] != last_char) {
@@ -611,14 +611,13 @@ const char_type* boyer_moore_search(const char_type* haystack, const size_t hays
     }
 
     const char_type* i = haystack;
-    auto _end = haystack + haystack_len - needle_len_sub_1;
-    auto _end_add_1 = _end + 1;
+    auto end = haystack + haystack_len - needle_len_sub_1;
 
     using char_traits = std::char_traits<char_type>;
 
-    while (i < _end) {
+    while (i < end) {
         auto j = i + needle_len_sub_1;
-        auto len = static_cast<size_t>(_end_add_1 - j);
+        auto len = static_cast<size_t>(end - i);
         auto k = char_traits::find(j, len, last_char);
         if (!k) {
             return nullptr;
@@ -643,7 +642,7 @@ const char_type* reverse_boyer_moore_search(const char_type* haystack, const siz
     }
 
     const auto needle_len_sub_1 = needle_len - 1;
-    const auto last_char = needle[0];
+    const auto last_char = *needle;
 
     size_t skip = 1;
     while (skip < needle_len && needle[skip] != last_char) {
@@ -851,7 +850,7 @@ STRIGNITE_CPP14_CONSTEXPR IntType to_int_not_check_nullptr(const char_type* str)
     constexpr size_t _limit = _uint_max / 10;
     constexpr size_t _num_limit = _uint_max % 10;
 
-    for (; is_digit(*ptr); ++ptr) {
+    for (; *ptr >= '0' && *ptr <= '9'; ++ptr) {
         const int num = *ptr - '0';
         if (result > _limit || (result == _limit && num > _num_limit)) {
             return negative ? _int_min : _int_max;
@@ -1685,7 +1684,7 @@ private:
     STRIGNITE_CPP17_CONSTEXPR STRIGNITE_FORCE_INLINE
     static int M_S_compare(const size_t n1, const size_t n2) noexcept {
         using limits = std::numeric_limits<int>;
-        const difference_type diff = n1 - n2;
+        const auto diff = static_cast<difference_type>(n1 - n2);
         if (diff > limits::max()) return limits::max();
         if (diff < limits::min()) return limits::min();
         return static_cast<int>(diff);
@@ -1805,11 +1804,11 @@ public:
         if (target.size() == 1) return count(target[0]);
 
         size_t count = 0;
-        for (auto index = internal::str_search(data(), size(), target, target.length());
+        for (auto index = internal::str_search(data(), size(), target.data(), target.length());
              index != nullptr;
              index = internal::str_search(
                  index + target.length(), size() - (index + target.length() - data()),
-                 target, target.length()), count++) {}
+                 target.data(), target.length()), count++) {}
         return count;
     }
 
@@ -2590,12 +2589,11 @@ private:
     template<size_t buffer_size, typename = internal::enable_if_t<buffer_size <= 0x400>>
     STRIGNITE_CPP17_NODISCARD STRIGNITE_CPP20_CONSTEXPR
     bool contains_helper(const string_view_t target, const bool ignore_case = false) const noexcept {
-        STRIGNITE_IF_UNLIKELY(target.size() == 0) return false;
+        STRIGNITE_IF_UNLIKELY(target.empty()) return false;
         if (target.size() == 1) return contains(target[0], ignore_case);
         if (!ignore_case) {
             return to_string_view().contains(target);
         }
-        if (target.length() == 0) return false;
         auto lower = this->to_lower();
         auto lower_data = lower.to_string_view();
         if (target.size() > buffer_size) {
@@ -3280,19 +3278,20 @@ public:
         return *this;
     }
 
-    basic_static_string& operator=(const basic_static_string& other) noexcept {
-        this->M_data = other.M_data;
-        return *this;
-    }
+    basic_static_string& operator=(const basic_static_string& other) noexcept = default;
 
     template<size_t OtherCapacity>
     basic_static_string& operator=(basic_static_string<OtherCapacity, char_type, char_traits>&& other) noexcept {
-        return *this = static_cast<const basic_static_string<OtherCapacity, char_type, char_traits> &>(other);
+        if (other.size() > max_length)
+            throw std::runtime_error("Length of other string cannot be greater than init capacity.");
+        M_init_data();
+        char_traits::copy(M_pointer(), other.data(), other.size());
+        M_set_length(other.size());
+        M_pointer()[length()] = static_cast<char_type>(0);
+        return *this;
     }
 
-    basic_static_string& operator=(basic_static_string&& other) noexcept {
-        return *this = static_cast<const basic_static_string &>(other);
-    }
+    basic_static_string& operator=(basic_static_string&& other) noexcept = default;
 
 private:
     STRIGNITE_CPP17_NODISCARD
@@ -3756,7 +3755,7 @@ private:
 
     STRIGNITE_CPP17_NODISCARD
     STRIGNITE_CPP20_CONSTEXPR basic_static_string insert_helper(const size_t pos, const string_view_t value) const {
-        STRIGNITE_IF_UNLIKELY(value.length() == 0) return *this;
+        STRIGNITE_IF_UNLIKELY(value.empty()) return *this;
         if (value.length() == 1) return insert(pos, value[0]);
 
         if (pos > size())
@@ -5277,12 +5276,11 @@ private:
     template<size_t buffer_size, typename = internal::enable_if_t<buffer_size <= 0x400>>
     STRIGNITE_CPP17_NODISCARD STRIGNITE_CPP20_CONSTEXPR
     bool contains_helper(const string_view_t target, const bool ignore_case = false) const noexcept {
-        STRIGNITE_IF_UNLIKELY(target.size() == 0) return false;
+        STRIGNITE_IF_UNLIKELY(target.empty()) return false;
         if (target.size() == 1) return contains(target[0], ignore_case);
         if (!ignore_case) {
             return to_string_view().contains(target);
         }
-        if (target.length() == 0) return false;
         auto lower = this->to_lower();
         auto lower_data = lower.to_string_view();
         if (target.size() > buffer_size) {
@@ -7992,12 +7990,11 @@ private:
     template<size_t buffer_size, typename = internal::enable_if_t<buffer_size <= 0x400>>
     STRIGNITE_CPP17_NODISCARD STRIGNITE_CPP20_CONSTEXPR
     bool contains_helper(const string_view_t target, const bool ignore_case = false) const noexcept {
-        STRIGNITE_IF_UNLIKELY(target.size() == 0) return false;
+        STRIGNITE_IF_UNLIKELY(target.empty()) return false;
         if (target.size() == 1) return contains(target[0], ignore_case);
         if (!ignore_case) {
             return to_string_view().contains(target);
         }
-        if (target.length() == 0) return false;
         auto lower = this->to_lower();
         auto lower_data = lower.to_string_view();
         if (target.size() > buffer_size) {
@@ -8691,9 +8688,9 @@ public:
     STRIGNITE_CPP17_NODISCARD
     STRIGNITE_CPP20_CONSTEXPR STRIGNITE_FORCE_INLINE
     basic_string replace(const char_type* const old_value, const char_type* const new_value) const {
-        using namespace ::bcs::internal;
         return replace_helper<buffer_size>(
-            old_value, traits_length<char_traits>(old_value), new_value, traits_length<char_traits>(new_value)
+            old_value, internal::traits_length<char_traits>(old_value),
+            new_value, internal::traits_length<char_traits>(new_value)
         );
     }
 
@@ -8707,6 +8704,7 @@ private:
         STRIGNITE_DEFER {
             delete[] temp.data;
         };
+        using namespace ::bcs::internal;
         for (const auto arg: args) {
             replace_helper<buffer_size>(
                 temp, arg->first.data(), arg->first.size(), arg->second.data(), arg->second.size()
@@ -9251,7 +9249,8 @@ private:
 
         STRIGNITE_CPP20_CONSTEXPR STRIGNITE_FORCE_INLINE
         void get_string(internal::MutString<char_type, char_traits>& str) const {
-            str = internal::MutString<char_type, char_traits>::get_string(M_str_ref.to_string_view());
+            auto view = M_str_ref.to_string_view();
+            str = internal::MutString<char_type, char_traits>::get_string(view.data(), view.size());
         }
 
     public:
@@ -9912,7 +9911,7 @@ private:
 
     STRIGNITE_CPP17_NODISCARD
     STRIGNITE_CPP20_CONSTEXPR basic_string insert_helper(size_t pos, const string_view_t value) const {
-        STRIGNITE_IF_UNLIKELY(value.size() == 0) return *this;
+        STRIGNITE_IF_UNLIKELY(value.empty()) return *this;
         if (value.size() == 1) return insert(pos, value[0]);
 
         auto view = to_string_view();
@@ -9927,7 +9926,7 @@ private:
         char_type* ptr = result.M_pointer();
 
         char_traits::copy(ptr, view.data(), pos);
-        char_traits::copy(ptr + pos, value, value_length);
+        char_traits::copy(ptr + pos, value.data(), value_length);
         char_traits::copy(ptr + pos + value_length, view.data() + pos, view.size() - pos);
 
         STRIGNITE_IF_CONSTANT_EVALUATED(result.M_set_hash(result.hash()))
